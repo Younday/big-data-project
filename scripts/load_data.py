@@ -2,15 +2,40 @@ import psycopg2
 import csv
 import time
 from tqdm import tqdm
+from pymongo import MongoClient
+import pandas as pd
 
+# Postgres connection
 conn = psycopg2.connect("host=localhost dbname=postgres user=unicorn_user password=magical_password")
 cur = conn.cursor()
+
+# MongoDB connection
+try:
+    connect = MongoClient('mongodb://root:rootpassword@localhost:27017/')
+    print("Connected successfully!!!")
+except:
+    print("Could not connect to MongoDB")
+
+# connecting or switching to the database
+db = connect.demoDB
 
 
 def create_tables():
     with open('../queries/create_table.sql','r') as inserts:
         query = inserts.read()
-    cur.execute(query)
+    try:
+        cur.execute(query)
+    except psycopg2.errors.DuplicateTable:
+        print("Table already exists in Postgres")
+
+def insert_data_mongo():
+    collection = db.title_basics
+    df = pd.read_csv("../data/title.basics.tsv",sep='\t')
+    mongo_records = df.to_dict('records')
+    t0 = time.time()
+    collection.insert_many(mongo_records)
+    t1 = time.time()
+    return t1-t0
 
 def read_data():
 
@@ -31,8 +56,10 @@ def read_data():
 
 def main():
     create_tables()
-    total = read_data()
-    print("Total time loading title.basics table: %s", total)
+    total_postgres = read_data()
+    total_mongo = insert_data_mongo()
+    print("Total time loading title.basics table for Postgres: %s", total_postgres)
+    print("Total time loading title.basics table for MongoDB: %s", total_mongo)
 
 if __name__ == "__main__":
     main()
