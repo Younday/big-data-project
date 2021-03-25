@@ -1,30 +1,30 @@
 WITH x AS (
     SELECT 
-        title_principals.tconst, COUNT(nconst) as counts
+        title.principals.tconst, COUNT(nconst) as counts
     FROM 
-        title_principals
-    LEFT JOIN title_basics ON title_basics.tconst = title_principals.tconst
+        title.principals
+    LEFT JOIN title.basics ON title.basics.tconst = title.principals.tconst
     WHERE
-        title_principals.nconst IN (
+        title.principals.nconst IN (
             SELECT 
                 nconst
             FROM
-                name_basics
-            WHERE name_basics.deathYear is not Null
+                name.basics
+            WHERE name.basics.deathYear is not Null
     )
         AND
-        title_basics.titleType = 'movie'
-    GROUP BY title_principals.tconst
+        title.basics.titleType = 'movie'
+    GROUP BY title.principals.tconst
 )
 SELECT COUNT(tconst) as numMovies
 FROM (
     SELECT 
-        title_principals.tconst
+        title.principals.tconst
     FROM 
-        title_principals
+        title.principals
 
-    JOIN x ON x.tconst = title_principals.tconst
-    GROUP BY title_principals.tconst
+    JOIN x ON x.tconst = title.principals.tconst
+    GROUP BY title.principals.tconst
     HAVING
-        x.counts = COUNT(title_principals.nconst)
+        x.counts = COUNT(title.principals.nconst)
 )
