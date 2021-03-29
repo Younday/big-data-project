@@ -5,6 +5,15 @@ from tqdm import tqdm
 from pymongo import MongoClient
 import pandas as pd
 import sys
+import argparse
+import io
+
+class Range(object):
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+    def __eq__(self, other):
+        return self.start <= other <= self.end
 
 # Postgres connection
 try:
@@ -39,12 +48,15 @@ def create_table_postgres():
     except:
        print("Error 3: ", sys.exc_info()[1])
 
-def insert_data_mongo(data, table):
+def insert_data_mongo(data, table, limit=1.0):
     collection = mongo_db[table] 
     
     # Read csv to dataframe and convert to dict (json like)
     df = pd.read_csv("../data/" + data,sep='\t')
-    mongo_records = df.to_dict('records')
+    length = df.shape[0]
+    split = int(length * limit)
+    df_f = df.head(split)
+    mongo_records = df_f.to_dict('records')
     
     # Start timer
     t0 = time.time()
@@ -60,11 +72,22 @@ def insert_data_mongo(data, table):
     
     return t1-t0
 
-def insert_data_postgres(data, table):
-    tsv_file = open("../data/" + data, 'r')
-
-    # Skip header file
-    next(tsv_file)
+def insert_data_postgres(data, table, limit=1.0):
+    if limit == 1.0:
+        tsv_file = open("../data/" + data, 'r')
+        next(tsv_file)
+    else:
+        tsv_file = open("../data/" + data, 'r')
+        reader = csv.reader(tsv_file, delimiter='\t')
+        next(reader, None)
+        s = len(list(reader))
+        size = s * limit
+        out = io.StringIO()
+        out_list = list(reader)[0:int(size)]
+        for item in out_list:
+            out.write(item.join("\t") + '\n')
+        out.seek(0)
+        tsv_file = out
 
     # Start timer
     t0 = time.time()
@@ -94,15 +117,18 @@ def clear_postgres():
         postgres_cur.execute(query)
         rows = postgres_cur.fetchall()
         for row in rows:
-            postgres_cur.execute("drop table " + row[1] + " cascade")
+            postgres_cur.execute("drop table " + row[0] + " cascade")
     except:
         print("Error 7: ", sys.exc_info()[1])
 
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("limit", help="float between 0 and 1 to set percentage of data loading", type=float, choices=[Range(0.0, 1.0)])
+    args = parser.parse_args()
     data = ['title.akas.tsv', 'title.basics.tsv', 'title.crew.tsv', 'title.episode.tsv', 'title.principals.tsv', 'title.ratings.tsv', 'name.basics.tsv']
-    tables = ['title_akas', 'title_basics', 'title_crew', 'title_episode', 'title_principals', 'title_ratings', 'name_basics']
+    tables = ['title.akas', 'title.basics', 'title.crew', 'title.episode', 'title.principals', 'title.ratings', 'name.basics']
     clear_postgres()
     clear_mongo()
     
@@ -110,10 +136,10 @@ def main():
     create_db_mongo()
 
     for d, t in zip(data, tables):
-        total_postgres = insert_data_postgres(d, t)
+        total_postgres = insert_data_postgres(d, t, limit=args.limit)
         print("Total time loading {} table for Postgres: {:>20f}".format(t, total_postgres))
-        total_mongo = insert_data_mongo(d, t)
-        print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
+        #total_mongo = insert_data_mongo(d, t)
+        #print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
     
     
     
