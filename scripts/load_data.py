@@ -39,11 +39,11 @@ def create_table_postgres():
     except:
        print("Error 3: ", sys.exc_info()[1])
 
-def insert_data_mongo():
-    collection = mongo_db.title_basics 
+def insert_data_mongo(data, table):
+    collection = mongo_db[table] 
     
     # Read csv to dataframe and convert to dict (json like)
-    df = pd.read_csv("../data/title.basics.tsv",sep='\t')
+    df = pd.read_csv("../data/" + data,sep='\t')
     mongo_records = df.to_dict('records')
     
     # Start timer
@@ -60,8 +60,8 @@ def insert_data_mongo():
     
     return t1-t0
 
-def insert_data_postgres():
-    tsv_file = open("../data/title.basics.tsv", 'r')
+def insert_data_postgres(data, table):
+    tsv_file = open("../data/" + data, 'r')
 
     # Skip header file
     next(tsv_file)
@@ -71,7 +71,7 @@ def insert_data_postgres():
 
     try:
         # File to database
-        postgres_cur.copy_from(tsv_file, 'title_basics', sep="\t")
+        postgres_cur.copy_from(tsv_file, table, sep="\t")
         postgres_conn.commit()
     except:
         print("Error 5: ", sys.exc_info()[1])
@@ -101,16 +101,22 @@ def clear_postgres():
 
 
 def main():
+    data = ['title.akas.tsv', 'title.basics.tsv', 'title.crew.tsv', 'title.episode.tsv', 'title.principals.tsv', 'title.ratings.tsv', 'name.basics.tsv']
+    tables = ['title_akas', 'title_basics', 'title_crew', 'title_episode', 'title_principals', 'title_ratings', 'name_basics']
     clear_postgres()
     clear_mongo()
     
     create_table_postgres()
     create_db_mongo()
 
-    total_postgres = insert_data_postgres()
-    total_mongo = insert_data_mongo()
-    print("Total time loading title.basics table for Postgres: ", total_postgres)
-    print("Total time loading title.basics table for MongoDB: ", total_mongo)
+    for d, t in zip(data, tables):
+        total_postgres = insert_data_postgres(d, t)
+        print("Total time loading {} table for Postgres: {:>20f}".format(t, total_postgres))
+        total_mongo = insert_data_mongo(d, t)
+        print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
+    
+    
+    
 
 
 
