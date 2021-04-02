@@ -7,6 +7,8 @@ import pandas as pd
 import sys
 import argparse
 import io
+import mongo_queries as mq
+import numpy as np
 
 class Range(object):
     def __init__(self, start, end):
@@ -56,7 +58,13 @@ def insert_data_mongo(data, table, limit=1.0):
     length = df.shape[0]
     split = int(length * limit)
     df_f = df.head(split)
+
     mongo_records = df_f.to_dict('records')
+
+    if (data == "title.basics.tsv"):
+        for sub in mongo_records:
+            if not (sub["runtimeMinutes"] == "\\N"):
+                sub["runtimeMinutes"] = int(sub["runtimeMinutes"])
     
     # Start timer
     t0 = time.time()
@@ -129,6 +137,7 @@ def main():
     args = parser.parse_args()
     data = ['title.akas.tsv', 'title.basics.tsv', 'title.crew.tsv', 'title.episode.tsv', 'title.principals.tsv', 'title.ratings.tsv', 'name.basics.tsv']
     tables = ['title.akas', 'title.basics', 'title.crew', 'title.episode', 'title.principals', 'title.ratings', 'name.basics']
+
     clear_postgres()
     clear_mongo()
     
@@ -138,13 +147,22 @@ def main():
     for d, t in zip(data, tables):
         total_postgres = insert_data_postgres(d, t, limit=args.limit)
         print("Total time loading {} table for Postgres: {:>20f}".format(t, total_postgres))
-        #total_mongo = insert_data_mongo(d, t)
-        #print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
-    
-    
-    
+        total_mongo = insert_data_mongo(d, t)
+        print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
 
 
 
 if __name__ == "__main__":
     main()
+    
+    mongo_db = mongo_conn["imdb"]
+
+    print(mq.actor_in_most_movies(mongo_db))
+    print(mq.kate_and_leo(mongo_db))
+    print(mq.stdev_movie_runtimes(mongo_db))
+    print(mq.num_movies_with_rating_higher_than_95(mongo_db))
+    print(mq.num_movies_with_death_actors(mongo_db))
+    print(mq.top_10_languages(mongo_db))
+    print(mq.movie_most_actors(mongo_db))
+    print(mq.year_most_top_100(mongo_db))
+    print(mq.avg_runtime_all_actors_death(mongo_db))
