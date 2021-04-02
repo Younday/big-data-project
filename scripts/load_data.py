@@ -9,6 +9,7 @@ import argparse
 import io
 import mongo_queries as mq
 import numpy as np
+from pprint import pprint
 
 class Range(object):
     def __init__(self, start, end):
@@ -138,11 +139,11 @@ def main():
     data = ['title.akas.tsv', 'title.basics.tsv', 'title.crew.tsv', 'title.episode.tsv', 'title.principals.tsv', 'title.ratings.tsv', 'name.basics.tsv']
     tables = ['title.akas', 'title.basics', 'title.crew', 'title.episode', 'title.principals', 'title.ratings', 'name.basics']
 
-    clear_postgres()
-    clear_mongo()
+    # clear_postgres()
+    # clear_mongo()
     
-    create_table_postgres()
-    create_db_mongo()
+    # create_table_postgres()
+    # create_db_mongo()
 
     for d, t in zip(data, tables):
         total_postgres = insert_data_postgres(d, t, limit=args.limit)
@@ -151,12 +152,12 @@ def main():
         #print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
 
 
-
 if __name__ == "__main__":
     main()
     
     mongo_db = mongo_conn["imdb"]
 
+    pprint(list(mq.actor_in_most_movies(mongo_db)))
     print(mq.actor_in_most_movies(mongo_db))
     print(mq.kate_and_leo(mongo_db))
     print(mq.stdev_movie_runtimes(mongo_db))
@@ -166,3 +167,4 @@ if __name__ == "__main__":
     print(mq.movie_most_actors(mongo_db))
     print(mq.year_most_top_100(mongo_db))
     print(mq.avg_runtime_all_actors_death(mongo_db))
+    print(mq.genre_most_movies(mongo_db))

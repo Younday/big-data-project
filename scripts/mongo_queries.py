@@ -1,11 +1,6 @@
 from bson.code import Code
 from pprint import pprint
 
-# movies moeten worden toegevoegd als criteria
-# in SQL niet check op actor, hier alleen in most movies wel?!
-# languages skipt sql de \n?
-
-
 def actor_in_most_movies(db):
     col = db["title.basics"]
 
@@ -35,7 +30,7 @@ def actor_in_most_movies(db):
         ]
     )
 
-    return list(result)
+    return result
 
 
 def stdev_movie_runtimes(db):
@@ -52,7 +47,7 @@ def stdev_movie_runtimes(db):
         ]
     )
 
-    return list(stdev)
+    return stdev
 
 
 def num_movies_with_rating_higher_than_95(db):
@@ -65,7 +60,7 @@ def num_movies_with_rating_higher_than_95(db):
         ]
     )
 
-    return list(result)
+    return result
 
 
 def num_movies_with_death_actors(db):
@@ -85,11 +80,21 @@ def num_movies_with_death_actors(db):
             {"$match": {"movies": {"$not": {"$size": 0}}}},
             {"$unwind": "$movies"},
             {"$group": {"_id": "$movies.tconst", "count": {"$sum": 1}}},
+            {
+                "$lookup": {
+                    "from": "title.basics",
+                    "localField": "_id",
+                    "foreignField": "tconst",
+                    "as": "movie_info",
+                }
+            },
+            {"$unwind": "$movie_info"},
+            {"$match": {"movie_info.titleType": "movie"}},
             {"$count": "Movies_with_death_actors_count"},
         ]
     )
 
-    return list(result)
+    return result
 
 
 def kate_and_leo(db):
@@ -120,7 +125,7 @@ def kate_and_leo(db):
         ]
     )
 
-    return list(result)
+    return result
 
 
 def top_10_languages(db):
@@ -144,7 +149,7 @@ def top_10_languages(db):
         ]
     )
 
-    return list(result)
+    return result
 
 
 def movie_most_actors(db):
@@ -176,7 +181,7 @@ def movie_most_actors(db):
         ]
     )
 
-    return list(result)
+    return result
 
 
 def year_most_top_100(db):
@@ -207,7 +212,7 @@ def year_most_top_100(db):
         ]
     )
 
-    return list(result)
+    return result
 
 
 def avg_runtime_all_actors_death(db):
@@ -259,6 +264,7 @@ def avg_runtime_all_actors_death(db):
                 }
             },
             {"$unwind": "$movie"},
+            {"$match": {"movie.titleType": "movie"}},
             {
                 "$group": {
                     "_id": "_id",
@@ -270,4 +276,23 @@ def avg_runtime_all_actors_death(db):
         ]
     )
 
-    return list(result)
+    return result
+
+def genre_most_movies(db):
+    col = db["title.basics"]
+
+    result = col.aggregate(
+        [
+            {"$match": {"titleType": "movie"}},
+            {
+                "$group": {
+                    "_id": "$genres",
+                    "movies_in_genre": {"$sum": 1},
+                }
+            },
+            {"$sort": {"movies_in_genre": -1}},
+            {"$limit": 1},
+        ]
+    )
+    
+    return result
