@@ -17,18 +17,18 @@ WITH y AS (
             title.basics.titleType = 'movie'
         GROUP BY title.principals.tconst
     )
-    SELECT tconst
+    SELECT P.tconst
     FROM (
         SELECT 
-            title.principals.tconst
+            title.principals.tconst, x.counts
         FROM 
             title.principals
 
         JOIN x ON x.tconst = title.principals.tconst
-        GROUP BY title.principals.tconst
+        GROUP BY title.principals.tconst, x.counts
         HAVING
             x.counts = COUNT(title.principals.nconst)
-    )
+    ) P
 )
 SELECT
     AVG(title.basics.runtimeMinutes) AS avg_runtime_in_minutes

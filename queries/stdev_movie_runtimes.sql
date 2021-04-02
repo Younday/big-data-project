@@ -1,5 +1,5 @@
 SELECT 
-    STDEV(runtimeMinutes) as StandardDeviation
+    STDDEV(runtimeMinutes) as StandardDeviation
 FROM
     title.basics
 WHERE
