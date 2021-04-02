@@ -45,7 +45,7 @@ CREATE TABLE title.principals(
     category text,
     job text,
     characters text,
-    primary key (tconst, ordering)
+    primary key (tconst, ordering, nconst)
 );
 
 CREATE TABLE title.ratings(
