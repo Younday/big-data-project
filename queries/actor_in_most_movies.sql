@@ -3,8 +3,7 @@ SELECT primaryName, MAX(P.count) FROM
         primaryName, COUNT(title.principals.nconst) as count
     FROM title.principals
     LEFT JOIN name.basics ON name.basics.nconst = title.principals.nconst
-    LEFT JOIN title.akas ON title.akas.titleId = principals.tconst
-    LEFT JOIN title.basics ON title.basics.tconst = title.akas.titleId
+    LEFT JOIN title.basics ON title.basics.tconst = title.principals.tconst
     WHERE 
         title.basics.titleType = 'movie' GROUP BY primaryName) P
     GROUP BY
