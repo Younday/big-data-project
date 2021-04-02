@@ -88,15 +88,15 @@ def insert_data_postgres(data, table, limit=1.0):
         tsv_file = open("../data/" + data, 'r')
         reader = csv.reader(tsv_file, delimiter='\t')
         next(reader, None)
-        s = len(list(reader))
+        data = list(reader)
+        s = len(data)
         size = s * limit
         out = io.StringIO()
-        out_list = list(reader)[0:int(size)]
-        for item in out_list:
-            out.write(item.join("\t") + '\n')
+        out_list_f = data[0:int(size)]
+        for item in out_list_f:
+            out.write("\t".join(item) + '\n')
         out.seek(0)
         tsv_file = out
-
     # Start timer
     t0 = time.time()
 
@@ -147,8 +147,8 @@ def main():
     for d, t in zip(data, tables):
         total_postgres = insert_data_postgres(d, t, limit=args.limit)
         print("Total time loading {} table for Postgres: {:>20f}".format(t, total_postgres))
-        total_mongo = insert_data_mongo(d, t)
-        print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
+        #total_mongo = insert_data_mongo(d, t)
+        #print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
 
 
 
