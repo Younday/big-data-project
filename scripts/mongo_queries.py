@@ -1,46 +1,44 @@
 from bson.code import Code
+import time
 from pprint import pprint
-
-# movies moeten worden toegevoegd als criteria
-# in SQL niet check op actor, hier alleen in most movies wel?!
-# languages skipt sql de \n?
-
 
 def actor_in_most_movies(db):
     col = db["title.basics"]
-
+    t0 = time.time()
     result = col.aggregate(
         [
             {"$match": {"titleType": "movie"}},
             {
-                "$lookup": {
-                    "from": "title.principals",
-                    "localField": "tconst",
-                    "foreignField": "tconst",
-                    "as": "actors",
-                }
-            },
-            {"$unwind": "$actors"},
-            {"$group": {"_id": "$actors.nconst", "count": {"$sum": 1}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 1},
-            {
-                "$lookup": {
-                    "from": "name.basics",
-                    "localField": "_id",
-                    "foreignField": "nconst",
-                    "as": "actor",
-                }
-            },
+                 "$lookup": {
+                     "from": "title.principals",
+                     "localField": "tconst",
+                     "foreignField": "tconst",
+                     "as": "actors",
+                 }
+             },
+             {"$unwind": "$actors"},
+             {"$group": {"_id": "$actors.nconst", "count": {"$sum": 1}}},
+             {"$sort": {"count": -1}},
+             {"$limit": 1},
+             {
+                 "$lookup": {
+                     "from": "name.basics",
+                     "localField": "_id",
+                     "foreignField": "nconst",
+                     "as": "actor",
+                 }
+             },
         ]
     )
 
-    return list(result)
+    t1 = time.time()
+
+    return len(list(result)), t1-t0
 
 
 def stdev_movie_runtimes(db):
     col = db["title.basics"]
-
+    t0 = time.time()
     stdev = col.aggregate(
         [
             {
@@ -51,26 +49,30 @@ def stdev_movie_runtimes(db):
             }
         ]
     )
+    t1 = time.time()
 
-    return list(stdev)
+    return len(list(stdev)), t1-t0
 
 
 def num_movies_with_rating_higher_than_95(db):
     col = db["title.ratings"]
 
+    t0 = time.time()
     result = col.aggregate(
         [
             {"$match": {"averageRating": {"$gt": 9.5}}},
             {"$count": "Higher_than_95_count"},
         ]
     )
+    t1 = time.time()
 
-    return list(result)
+    return len(list(result)), t1-t0
 
 
 def num_movies_with_death_actors(db):
     col = db["name.basics"]
 
+    t0 = time.time()
     result = col.aggregate(
         [
             {"$match": {"deathYear": {"$not": {"$eq": "\\N"}}}},
@@ -85,16 +87,28 @@ def num_movies_with_death_actors(db):
             {"$match": {"movies": {"$not": {"$size": 0}}}},
             {"$unwind": "$movies"},
             {"$group": {"_id": "$movies.tconst", "count": {"$sum": 1}}},
+            {
+                "$lookup": {
+                    "from": "title.basics",
+                    "localField": "_id",
+                    "foreignField": "tconst",
+                    "as": "movie_info",
+                }
+            },
+            {"$unwind": "$movie_info"},
+            {"$match": {"movie_info.titleType": "movie"}},
             {"$count": "Movies_with_death_actors_count"},
         ]
     )
+    t1 = time.time()
 
-    return list(result)
+    return len(list(result)), t1-t0
 
 
 def kate_and_leo(db):
     col = db["name.basics"]
 
+    t0 = time.time()
     result = col.aggregate(
         [
             {
@@ -119,13 +133,15 @@ def kate_and_leo(db):
             {"$group": {"_id": "_id", "Kate_Leo_Same_Movie": {"$sum": 1}}},
         ]
     )
-
-    return list(result)
+    t1 = time.time()
+    
+    return len(list(result)), t1-t0
 
 
 def top_10_languages(db):
     col = db["title.basics"]
 
+    t0 = time.time()
     result = col.aggregate(
         [
             {"$match": {"titleType": "movie"}},
@@ -143,12 +159,14 @@ def top_10_languages(db):
             {"$limit": 10},
         ]
     )
-
-    return list(result)
+    t1 = time.time()
+    return len(list(result)), t1-t0
 
 
 def movie_most_actors(db):
     col = db["title.basics"]
+
+    t0 = time.time()
 
     result = col.aggregate(
         [
@@ -175,12 +193,15 @@ def movie_most_actors(db):
             },
         ]
     )
+    t1 = time.time()
 
-    return list(result)
+    return len(list(result)), t1-t0
 
 
 def year_most_top_100(db):
     col = db["title.ratings"]
+
+    t0 = time.time()
 
     result = col.aggregate(
         [
@@ -204,70 +225,94 @@ def year_most_top_100(db):
             },
             {"$sort": {"amount_of_top_100_movies": -1}},
             {"$limit": 1},
-        ]
+        ], allowDiskUse=True
     )
 
-    return list(result)
+    t1 = time.time()
+
+    return len(list(result)), t1-t0
 
 
 def avg_runtime_all_actors_death(db):
     col = db["title.principals"]
-
+    t0 = time.time()
     result = col.aggregate(
         [
             {
+                "$lookup": {
+                    "from": "name.basics",
+                    "localField": "nconst",
+                    "foreignField": "nconst",
+                    "as": "name",
+                }
+            },
+            {
                 "$group": {
                     "_id": "$tconst",
-                    "actors": {"$push": "$nconst"},
+                    "actors": {"$push": "$name"},
                     "total": {"$sum": 1},
                 }
             },
             {
                 "$unwind": "$actors",
             },
-            {
-                "$lookup": {
-                    "from": "name.basics",
-                    "localField": "actors",
-                    "foreignField": "nconst",
-                    "as": "name",
-                }
-            },
-            {
-                "$match": {
-                    "$and": [
-                        {"name": {"$not": {"$eq": []}}},
-                        {"name.deathYear": {"$not": {"$eq": "\\N"}}},
-                    ]
-                }
-            },
+            #{
+            #    "$match": {
+            #        "$and": [
+            #            {"actors": {"$not": {"$eq": []}}},
+            #            {"actors.deathYear": {"$not": {"$eq": "\\N"}}},
+            #        ]
+            #    }
+            #},
+            #{
+            #    "$group": {
+            #        "_id": "$_id",
+            #        "actors": {"$push": "$actors"},
+            #        "total": {"$first": "$total"},
+            #        "death": {"$sum": 1},
+            #    }
+            #},
+            #{"$match": {"$expr": {"$eq": ["$death", "$total"]}}},
+            #{
+            #    "$lookup": {
+            #        "from": "title.basics",
+            #        "localField": "_id",
+            #        "foreignField": "tconst",
+            #        "as": "movie",
+            #    }
+            #},
+            #{"$unwind": "$movie"},
+            #{"$match": {"movie.titleType": "movie"}},
+            #{
+            #    "$group": {
+            #        "_id": "_id",
+            #        "Average_movietime_with_death_actors": {
+            #            "$avg": "$movie.runtimeMinutes"
+            #        },
+            #    }
+            #}
+        ], allowDiskUse=True
+    )
+    t1 = time.time()
+
+    return len(list(result)), t1-t0
+
+def genre_most_movies(db):
+    col = db["title.basics"]
+    t0 = time.time()
+    result = col.aggregate(
+        [
+            {"$match": {"titleType": "movie"}},
             {
                 "$group": {
-                    "_id": "$_id",
-                    "actors": {"$push": "$actors"},
-                    "total": {"$first": "$total"},
-                    "death": {"$sum": 1},
+                    "_id": "$genres",
+                    "movies_in_genre": {"$sum": 1},
                 }
             },
-            {"$match": {"$expr": {"$eq": ["$death", "$total"]}}},
-            {
-                "$lookup": {
-                    "from": "title.basics",
-                    "localField": "_id",
-                    "foreignField": "tconst",
-                    "as": "movie",
-                }
-            },
-            {"$unwind": "$movie"},
-            {
-                "$group": {
-                    "_id": "_id",
-                    "Average_movietime_with_death_actors": {
-                        "$avg": "$movie.runtimeMinutes"
-                    },
-                }
-            },
+            {"$sort": {"movies_in_genre": -1}},
+            {"$limit": 1},
         ]
     )
-
-    return list(result)
+    t1 = time.time()
+    
+    return len(list(result)), t1-t0

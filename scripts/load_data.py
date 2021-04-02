@@ -9,6 +9,7 @@ import argparse
 import io
 import mongo_queries as mq
 import numpy as np
+from pprint import pprint
 
 class Range(object):
     def __init__(self, start, end):
@@ -57,14 +58,19 @@ def insert_data_mongo(data, table, limit=1.0):
     df = pd.read_csv("../data/" + data,sep='\t')
     length = df.shape[0]
     split = int(length * limit)
-    df_f = df.head(split)
+    
+    del df
+    df_f = pd.read_csv("../data/" + data,sep='\t', nrows=split)
 
     mongo_records = df_f.to_dict('records')
 
     if (data == "title.basics.tsv"):
         for sub in mongo_records:
             if not (sub["runtimeMinutes"] == "\\N"):
-                sub["runtimeMinutes"] = int(sub["runtimeMinutes"])
+                try:
+                    sub["runtimeMinutes"] = int(sub["runtimeMinutes"])
+                except:
+                    sub["runtimeMinutes"] = 0
     
     # Start timer
     t0 = time.time()
@@ -88,15 +94,17 @@ def insert_data_postgres(data, table, limit=1.0):
         tsv_file = open("../data/" + data, 'r')
         reader = csv.reader(tsv_file, delimiter='\t')
         next(reader, None)
-        s = len(list(reader))
+        data = list(reader)
+        s = len(data)
         size = s * limit
+        del reader
         out = io.StringIO()
-        out_list = list(reader)[0:int(size)]
-        for item in out_list:
-            out.write(item.join("\t") + '\n')
+        out_list_f = data[0:int(size)]
+        del data
+        for item in out_list_f:
+            out.write("\t".join(item) + '\n')
         out.seek(0)
         tsv_file = out
-
     # Start timer
     t0 = time.time()
 
@@ -129,6 +137,54 @@ def clear_postgres():
     except:
         print("Error 7: ", sys.exc_info()[1])
 
+def create_index_mongo(db):
+    try:
+        col = db["name.basics"]
+        col.create_index("nconst")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+
+    try:
+        col = db["title.principals"]
+        col.create_index("tconst")
+        col.create_index("nconst")
+        col.create_index("ordering")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+
+    try:
+        col = db["title.akas"]
+        col.create_index("titleId")
+        col.create_index("ordering")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+
+    try:
+        col = db["title.crew"]
+        col.create_index("tconst")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+
+    try:
+        col = db["title.episode"]
+        col.create_index("tconst")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+    
+    try:
+        col = db["title.ratings"]
+        col.create_index("tconst")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+
+    try:
+        col = db["title.basics"]
+        col.create_index("tconst")
+    except:
+        print("Error 8: ", sys.exc_info()[1])
+
+    print("Created all indexes")
+
 
 
 def main():
@@ -147,22 +203,24 @@ def main():
     for d, t in zip(data, tables):
         total_postgres = insert_data_postgres(d, t, limit=args.limit)
         print("Total time loading {} table for Postgres: {:>20f}".format(t, total_postgres))
-        total_mongo = insert_data_mongo(d, t)
+        total_mongo = insert_data_mongo(d, t, limit=args.limit)
         print("Total time loading {} table for MongoDB: {:>20f}".format(t, total_mongo))
-
 
 
 if __name__ == "__main__":
     main()
     
     mongo_db = mongo_conn["imdb"]
+    create_index_mongo(mongo_db)
 
-    print(mq.actor_in_most_movies(mongo_db))
-    print(mq.kate_and_leo(mongo_db))
-    print(mq.stdev_movie_runtimes(mongo_db))
-    print(mq.num_movies_with_rating_higher_than_95(mongo_db))
-    print(mq.num_movies_with_death_actors(mongo_db))
-    print(mq.top_10_languages(mongo_db))
-    print(mq.movie_most_actors(mongo_db))
-    print(mq.year_most_top_100(mongo_db))
-    print(mq.avg_runtime_all_actors_death(mongo_db))
+    ##pprint(list(mq.actor_in_most_movies(mongo_db)))
+    print("Actor in most movies: ", mq.actor_in_most_movies(mongo_db))
+    print("Kate & Leo: ", mq.kate_and_leo(mongo_db))
+    print("STDEV movie runtime: ", mq.stdev_movie_runtimes(mongo_db))
+    print("rating higher > 95: ", mq.num_movies_with_rating_higher_than_95(mongo_db))
+    print("Dead actors: ",mq.num_movies_with_death_actors(mongo_db))
+    print("Top 10 languages: ",mq.top_10_languages(mongo_db))
+    print("Movie most actors: ",mq.movie_most_actors(mongo_db))
+    print("Year most top 100: ",mq.year_most_top_100(mongo_db))
+    ##print("Avg runtime dead actors: ",mq.avg_runtime_all_actors_death(mongo_db))
+    print("Genre most movies: ",mq.genre_most_movies(mongo_db))
